@@ -1,6 +1,7 @@
 import golly as g
 
 global ini_rect
+global gliders_in
 
 gld = g.parse("3o$2bo$bo!")
 
@@ -112,11 +113,30 @@ def find_and_remove_all():
 
    return res
 
-def find_all_glider_idx(gliders_in):
+def popcount(x):
+   pop = 0
+   while x:
+      pop += x & 1
+      x //= 2
+   return pop
+
+def extract_indexes(x):
+   indexes = []
+   idx = 0
+   while x:
+      if x & 1:
+         indexes.append(idx)
+      x //= 2
+      idx += 1
+   return indexes
+
+def find_all_glider_idx(mask):
    
-   gliders_in.sort(key=lambda tup: (1.01 * tup[0] + tup[1]))
+   idxs = extract_indexes(mask)
+   idxs.sort(key=lambda idx: (1.01 * gliders_in[idx][0] + gliders_in[idx][1]))
+
    valids = []
-   for g_i in range(len(gliders_in)):
+   for g_i in idxs:
       for edge_i in range(len(l_edge)):
          edge_shoot = l_edge[edge_i]
          ini_gld = l_gld[edge_i]
@@ -127,11 +147,11 @@ def find_all_glider_idx(gliders_in):
          g.putcells(edge_shoot, x, y)
          g.putcells(g.evolve(ini_gld, idx), x, y)
 
-         for i in range(len(gliders_in)):
-            if i == g_i:
+         for g_j in idxs:
+            if g_j == g_i:
                continue
                
-            x, y, idx = gliders_in[i]
+            x, y, idx = gliders_in[g_j]
             g.putcells(g.evolve(gld, idx), x - step_d - 512, y + step_d + 512)
 
          pop = int(g.getpop())
@@ -145,22 +165,26 @@ def find_all_glider_idx(gliders_in):
          g.step()
          g.step()
          
-         if 10 * len(gliders_in) == len(g.getcells([ini_rect[0] + 2 * step_d, ini_rect[1] - 2 * step_d, ini_rect[2], ini_rect[3]])) and (pop ==  int(g.getpop()) or pop - 5 ==  int(g.getpop())):
+         if 10 * len(idxs) == len(g.getcells([ini_rect[0] + 2 * step_d, ini_rect[1] - 2 * step_d, ini_rect[2], ini_rect[3]])) and (pop ==  int(g.getpop()) or pop - 5 ==  int(g.getpop())):
             valids.append((g_i,edge_i))
             break
 
    return valids
 
-def recursive_search(gliders_in):
-   g.show("remains glider %d" % len(gliders_in))
+def recursive_search(mask):
+
+   if mask == 0:
+      return []
+
+   g.show("remains glider %d" % popcount(mask))
    g.update()
    
-   valids = find_all_glider_idx(gliders_in)
+   valids = find_all_glider_idx(mask)
    
    if len(valids) == 0:
       return False
       
-   if len(gliders_in) % 2 == 0:
+   if popcount(mask) % 2 == 0:
       valids.reverse()
 
    g_i,edge_i = valids[0]
@@ -169,44 +193,19 @@ def recursive_search(gliders_in):
       del valids[0]
       valids.append((g_i, edge_i))
    
-   seq = []
-   
    for g_i,edge_i in valids:
 
-      new_gliders_in = []
-      for i in range(len(gliders_in)):
-         if i == g_i:
-            continue
+      recurse_seq = recursive_search(mask ^ (2 ** g_i))
          
-         new_gliders_in.append(gliders_in[i])
+      if recurse_seq != False:
+         return [(g_i, edge_i)] + recurse_seq
          
-      if len(new_gliders_in) > 0:
-         recurse_seq = recursive_search(new_gliders_in)
-         
-         if recurse_seq == False:
-            continue
-         
-         seq.append((g_i,edge_i))
-         
-         for j, edge_j in recurse_seq:
-            if j >= g_i:
-               seq.append((j + 1, edge_j))
-            else:
-               seq.append((j, edge_j))
-         
-         return seq
-      else:
-         return [(g_i,edge_i)]
-         
-   if len(seq) == 0:
-      return False
-   
-   return seq
+   return False
          
 ini_rect = g.getrect()
 gliders_in = find_and_remove_all()
 
-seq = recursive_search(gliders_in)
+seq = recursive_search(2 ** len(gliders_in) - 1)
 
 g.show(str(seq))
 
