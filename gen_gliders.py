@@ -136,7 +136,7 @@ def find_all_glider_idx(mask):
    idxs = extract_indexes(mask)
    idxs.sort(key=lambda idx: (1.01 * gliders_in[idx][0] + gliders_in[idx][1]))
 
-   shooters = range(len(l_edge)-2, 0, -1) + [len(l_edge)-1] if popcount(mask) % 2 else range(len(l_edge))
+   shooters = range(6, 12) + range(6) + [12] if popcount(mask) % 2 else range(13)
    copy_idxs = idxs[:]
 
    for edge_i in shooters:
@@ -173,30 +173,13 @@ def find_all_glider_idx(mask):
             del copy_idxs[copy_idxs.index(g_i)]
             yield g_i,edge_i
 
-def recursive_search(mask):
-
-   if mask == 0:
-      return []
-
-   g.show("remains glider %d" % popcount(mask))
-   g.update()
-   
-   for g_i,edge_i in find_all_glider_idx(mask):
-   
-      recurse_seq = recursive_search(mask ^ (2 ** g_i))
-         
-      if recurse_seq != False:
-         return [(g_i, edge_i)] + recurse_seq
-         
-   return False
-         
 def a_star_search():
    
    gen = 0
    start = 2 ** len(gliders_in) - 1
    frontier = [(popcount(start), gen, start)]
-   came_from = { start : None }
    cost = { start : 0 }
+   prev = { start : None }
    
    while frontier:
       current = heapq.heappop(frontier)[2]
@@ -212,38 +195,29 @@ def a_star_search():
             priority = new_cost + popcount(new_mask)
             gen -= 1
             heapq.heappush(frontier, (priority, gen, new_mask))
-            came_from[new_mask] = g_i, edge_i
+            prev[new_mask] = g_i, edge_i
          if edge_i < 12:
             break
             
-   return came_from, cost
+   return prev
 
 ini_rect = g.getrect()
 gliders_in = find_and_remove_all()
-#a_star_search()
+prev = a_star_search()
 
-seq = recursive_search(2 ** len(gliders_in) - 1)
+step_d = 250
+total_d = 0
 
-g.show(str(seq))
-
-if seq == False:
-   g.new("")
-   for x, y, idx in gliders_in:
-      g.putcells(g.evolve(gld, idx), x, y)
-   g.exit("Failed to solve")
-
-step_d = 150
-
-for i,edge_i in seq:
-   if edge_i == 12:
-      step_d = 250
-      
-total_d = len(gliders_in) * step_d
 g.new("")
-total_l = total_d
-total_r = total_d
 
-for i,edge_i in seq:
+current = 0
+start = 2 ** len(gliders_in) - 1
+
+while current != start:
+
+   i, edge_i = prev[current]
+   current ^= 2 ** i
+
    x, y, idx = gliders_in[i]
    edge_shoot = l_edge[edge_i]
    ini_gld = l_gld[edge_i]
@@ -259,5 +233,5 @@ for i,edge_i in seq:
       g.putcells(g.evolve(gld_r_clock, idx), x + 2 * total_d, y)
       g.putcells(g.evolve(gld_l_clock, idx),  x, y - 2 * total_d)
       
-   total_d -= step_d
+   total_d += step_d
 
