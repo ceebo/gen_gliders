@@ -1,4 +1,5 @@
 import golly as g
+import heapq
 
 global ini_rect
 global gliders_in
@@ -135,11 +136,14 @@ def find_all_glider_idx(mask):
    idxs = extract_indexes(mask)
    idxs.sort(key=lambda idx: (1.01 * gliders_in[idx][0] + gliders_in[idx][1]))
 
-   valids = []
-   for g_i in idxs:
-      for edge_i in range(len(l_edge)):
-         edge_shoot = l_edge[edge_i]
-         ini_gld = l_gld[edge_i]
+   shooters = range(len(l_edge)-2, 0, -1) + [len(l_edge)-1] if popcount(mask) % 2 else range(len(l_edge))
+   copy_idxs = idxs[:]
+
+   for edge_i in shooters:
+      edge_shoot = l_edge[edge_i]
+      ini_gld = l_gld[edge_i]
+
+      for g_i in copy_idxs:
       
          g.new("")
          step_d = 128
@@ -166,10 +170,8 @@ def find_all_glider_idx(mask):
          g.step()
          
          if 10 * len(idxs) == len(g.getcells([ini_rect[0] + 2 * step_d, ini_rect[1] - 2 * step_d, ini_rect[2], ini_rect[3]])) and (pop ==  int(g.getpop()) or pop - 5 ==  int(g.getpop())):
-            valids.append((g_i,edge_i))
-            break
-
-   return valids
+            del copy_idxs[copy_idxs.index(g_i)]
+            yield g_i,edge_i
 
 def recursive_search(mask):
 
@@ -179,22 +181,8 @@ def recursive_search(mask):
    g.show("remains glider %d" % popcount(mask))
    g.update()
    
-   valids = find_all_glider_idx(mask)
+   for g_i,edge_i in find_all_glider_idx(mask):
    
-   if len(valids) == 0:
-      return False
-      
-   if popcount(mask) % 2 == 0:
-      valids.reverse()
-
-   g_i,edge_i = valids[0]
-   
-   if edge_i == 12:
-      del valids[0]
-      valids.append((g_i, edge_i))
-   
-   for g_i,edge_i in valids:
-
       recurse_seq = recursive_search(mask ^ (2 ** g_i))
          
       if recurse_seq != False:
@@ -202,8 +190,37 @@ def recursive_search(mask):
          
    return False
          
+def a_star_search():
+   
+   gen = 0
+   start = 2 ** len(gliders_in) - 1
+   frontier = [(popcount(start), gen, start)]
+   came_from = { start : None }
+   cost = { start : 0 }
+   
+   while frontier:
+      current = heapq.heappop(frontier)[2]
+      g.show(str((popcount(current), cost[current])))
+      if current == 0:
+         break
+      
+      for g_i, edge_i in find_all_glider_idx(current):
+         new_cost = cost[current] + (1 if edge_i < 12 else 2)
+         new_mask = current ^ (2 ** g_i)
+         if new_mask not in cost or new_cost < cost[new_mask]:
+            cost[new_mask] = new_cost
+            priority = new_cost + popcount(new_mask)
+            gen -= 1
+            heapq.heappush(frontier, (priority, gen, new_mask))
+            came_from[new_mask] = g_i, edge_i
+         if edge_i < 12:
+            break
+            
+   return came_from, cost
+
 ini_rect = g.getrect()
 gliders_in = find_and_remove_all()
+#a_star_search()
 
 seq = recursive_search(2 ** len(gliders_in) - 1)
 
