@@ -167,7 +167,7 @@ def find_all_glider_idx(mask):
       reaction_cells = shoot_defs[edge_i][4]
       stable_cells = shoot_defs[edge_i][5]
 
-      for g_i in copy_idxs:
+      for g_i in list(copy_idxs):
       
          g.new("")
  
@@ -197,7 +197,7 @@ def find_all_glider_idx(mask):
                g.putcells(g.evolve(gld, idx), x, y, 1, 0, 0, 1, "xor")
 
          if g.empty():
-            del copy_idxs[copy_idxs.index(g_i)]
+            copy_idxs.remove(g_i)
             yield g_i,edge_i
 
 def a_star_search():
